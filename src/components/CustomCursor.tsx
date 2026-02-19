@@ -1,86 +1,103 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, useSpring, useMotionValue } from "framer-motion";
 
 const CustomCursor = () => {
   const [isHovering, setIsHovering] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
+  const cursorRef = useRef<HTMLDivElement>(null);
 
-  // Use raw MotionValues
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
+  const cursorX = useMotionValue(-100);
+  const cursorY = useMotionValue(-100);
 
-  // Smooth springs
-  const springConfig = { damping: 20, stiffness: 250, mass: 0.5 };
-  const xSpring = useSpring(mouseX, springConfig);
-  const ySpring = useSpring(mouseY, springConfig);
+  const springConfig = { damping: 25, stiffness: 300, mass: 0.5 };
+  const cursorXSpring = useSpring(cursorX, springConfig);
+  const cursorYSpring = useSpring(cursorY, springConfig);
 
   useEffect(() => {
-    // 1. Define the move function
-    const handleMouseMove = (e: MouseEvent) => {
-      // Use requestAnimationFrame for high-performance updates
-      requestAnimationFrame(() => {
-        mouseX.set(e.clientX);
-        mouseY.set(e.clientY);
-      });
+    const moveCursor = (e: MouseEvent) => {
+      cursorX.set(e.clientX);
+      cursorY.set(e.clientY);
     };
 
-    const handleHover = (e: MouseEvent) => {
+    const handleMouseDown = () => setIsClicking(true);
+    const handleMouseUp = () => setIsClicking(false);
+
+    const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      setIsHovering(!!target.closest("a, button, .cursor-pointer"));
+      const isInteractive = !!target.closest(
+        "a, button, [role='button'], [data-cursor], .cursor-pointer"
+      );
+      setIsHovering(isInteractive);
     };
 
-    // 2. Attach to window
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("mousedown", () => setIsClicking(true));
-    window.addEventListener("mouseup", () => setIsClicking(false));
-    window.addEventListener("mouseover", handleHover);
+    window.addEventListener("mousemove", moveCursor);
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseover", handleMouseOver);
 
-    // 3. Cleanup
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mousedown", () => setIsClicking(true));
-      window.removeEventListener("mouseup", () => setIsClicking(false));
-      window.removeEventListener("mouseover", handleHover);
+      window.removeEventListener("mousemove", moveCursor);
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseover", handleMouseOver);
     };
-  }, [mouseX, mouseY]);
+  }, [cursorX, cursorY]);
 
   return (
-    <div 
-      className="fixed inset-0 pointer-events-none z-[99999]" 
-      style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
-    >
+    <>
+      {/* Main cursor dot */}
       <motion.div
+        ref={cursorRef}
+        className="fixed top-0 left-0 pointer-events-none z-[10000] mix-blend-difference"
         style={{
-          x: xSpring,
-          y: ySpring,
-          translateX: "-50%",
-          translateY: "-50%",
+          x: cursorXSpring,
+          y: cursorYSpring,
         }}
-        className="absolute top-0 left-0 flex items-center justify-center"
       >
-        <div className="relative flex items-center justify-center pointer-events-none">
-          {/* Main Dot */}
-          <motion.div
-            className="bg-white rounded-full mix-blend-difference absolute"
-            animate={{
-              width: isHovering ? 12 : 8,
-              height: isHovering ? 12 : 8,
-              scale: isClicking ? 0.8 : 1,
+        <motion.div
+          className="relative -translate-x-1/2 -translate-y-1/2"
+          animate={{
+            scale: isClicking ? 0.8 : isHovering ? 1.5 : 1,
+          }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div
+            className="rounded-full bg-foreground"
+            style={{
+              width: isHovering ? "12px" : "8px",
+              height: isHovering ? "12px" : "8px",
+              transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           />
-
-          {/* Outer Ring */}
-          <motion.div
-            className="border border-white/50 rounded-full absolute"
-            animate={{
-              width: isHovering ? 48 : 32,
-              height: isHovering ? 48 : 32,
-              opacity: isHovering ? 1 : 0.5,
-            }}
-          />
-        </div>
+        </motion.div>
       </motion.div>
-    </div>
+
+      {/* Cursor ring */}
+      <motion.div
+        className="fixed top-0 left-0 pointer-events-none z-[9999]"
+        style={{
+          x: cursorXSpring,
+          y: cursorYSpring,
+        }}
+      >
+        <motion.div
+          className="relative -translate-x-1/2 -translate-y-1/2"
+          animate={{
+            scale: isClicking ? 0.9 : isHovering ? 1.8 : 1,
+            opacity: isHovering ? 0.8 : 0.4,
+          }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div
+            className="rounded-full border border-primary/50"
+            style={{
+              width: "32px",
+              height: "32px",
+            }}
+          />
+        </motion.div>
+      </motion.div>
+    </>
   );
 };
 
